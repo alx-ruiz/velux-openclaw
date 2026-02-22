@@ -1,15 +1,7 @@
-import { db, ensureSchema } from '@/lib/db';
+import { supabase } from '@/lib/supabase';
 
-export default function PaymentsPage() {
-  ensureSchema();
-  const payments = db.prepare(`
-    SELECT p.*, j.service_type, c.first_name, c.last_name
-    FROM payments p
-    JOIN jobs j ON j.id = p.job_id
-    JOIN customers c ON c.id = j.customer_id
-    ORDER BY p.id DESC
-    LIMIT 50
-  `).all() as any[];
+export default async function PaymentsPage() {
+  const { data: payments } = await supabase.from('invoices').select('*').order('id', { ascending: false }).limit(50);
 
   return (
     <div className="space-y-4">
@@ -18,8 +10,8 @@ export default function PaymentsPage() {
         <table className="w-full text-sm">
           <thead><tr className="text-left border-b"><th className="p-2">Customer</th><th className="p-2">Type</th><th className="p-2">Amount</th><th className="p-2">Status</th></tr></thead>
           <tbody>
-            {payments.map(p => (
-              <tr key={p.id} className="border-b last:border-0"><td className="p-2">{p.first_name} {p.last_name}</td><td className="p-2">{p.payment_type}</td><td className="p-2">${(p.amount_cents/100).toFixed(2)}</td><td className="p-2">{p.status}</td></tr>
+            {(payments ?? []).map((p: any) => (
+              <tr key={p.id} className="border-b last:border-0"><td className="p-2">{p.first_name || ''} {p.last_name || ''}</td><td className="p-2">{p.payment_type || 'payment'}</td><td className="p-2">${((p.amount_cents || 0)/100).toFixed(2)}</td><td className="p-2">{p.status}</td></tr>
             ))}
           </tbody>
         </table>

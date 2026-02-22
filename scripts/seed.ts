@@ -1,29 +1,56 @@
-import { db, ensureSchema } from '../lib/db';
+import { supabase } from '../lib/supabase';
 import { splitPayment } from '../lib/stripe';
 
-ensureSchema();
+async function seed() {
+  const quote = 150000;
+  const { deposit, balance } = splitPayment(quote);
 
-db.prepare('DELETE FROM communications').run();
-db.prepare('DELETE FROM payments').run();
-db.prepare('DELETE FROM jobs').run();
-db.prepare('DELETE FROM customers').run();
+  await supabase.from('sms_log').delete().neq('id', '');
+  await supabase.from('invoices').delete().neq('id', '');
+  await supabase.from('bookings').delete().neq('id', '');
+  await supabase.from('customers').delete().neq('id', '');
 
-const customer = db.prepare(`
-  INSERT INTO customers (first_name, last_name, phone, email, address, city, state, zip, preferred_channel)
-  VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'sms')
-`).run('Jordan', 'Miles', '+15551234567', 'jordan@example.com', '123 Cedar St', 'Austin', 'TX', '78701');
+  const { data: customer } = await supabase
+    .from('customers')
+    .insert({
+      first_name: 'Jordan',
+      last_name: 'Miles',
+      phone: '+15551234567',
+      email: 'jordan@example.com',
+      address: '123 Cedar St',
+      city: 'Austin',
+      state: 'TX',
+      zip: '78701',
+      preferred_channel: 'sms',
+    })
+    .select('id')
+    .single();
 
-const quote = 150000;
-const { deposit, balance } = splitPayment(quote);
+  const { data: booking } = await supabase
+    .from('bookings')
+    .insert({
+      customer_id: customer?.id,
+      service_type: 'Full Exterior + Interior Detail',
+      status: 'scheduled',
+      quoted_amount_cents: quote,
+      deposit_amount_cents: deposit,
+      balance_amount_cents: balance,
+      scheduled_start: new Date(Date.now() + 86400000).toISOString(),
+      scheduled_end: new Date(Date.now() + 3 * 86400000).toISOString(),
+      notes: 'Customer requested SMS updates only.',
+    })
+    .select('id')
+    .single();
 
-const job = db.prepare(`
-  INSERT INTO jobs (customer_id, service_type, status, quoted_amount_cents, deposit_amount_cents, balance_amount_cents, scheduled_start, scheduled_end, notes)
-  VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-`).run(customer.lastInsertRowid, 'Full Exterior + Interior Detail', 'scheduled', quote, deposit, balance, new Date(Date.now()+86400000).toISOString(), new Date(Date.now()+3*86400000).toISOString(), 'Customer requested SMS updates only.');
+  await supabase.from('sms_log').insert({
+    customer_id: customer?.id,
+    booking_id: booking?.id,
+    direction: 'outbound',
+    channel: 'sms',
+    body: 'Thanks for booking with Velux. Your 20% deposit link is ready.',
+  });
 
-db.prepare(`
-  INSERT INTO communications (customer_id, job_id, direction, channel, body)
-  VALUES (?, ?, 'outbound', 'sms', ?)
-`).run(customer.lastInsertRowid, job.lastInsertRowid, 'Thanks for booking with Velux. Your 20% deposit link is ready.');
+  console.log('Seed complete');
+}
 
-console.log('Seed complete');
+seed();

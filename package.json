@@ -12,18 +12,16 @@
   "dependencies": {
     "@aws-sdk/client-s3": "^3.750.0",
     "@aws-sdk/s3-request-presigner": "^3.750.0",
-    "better-sqlite3": "^11.8.1",
+    "@supabase/supabase-js": "^2.52.1",
     "googleapis": "^144.0.0",
     "next": "14.2.25",
     "react": "18.3.1",
     "react-dom": "18.3.1",
     "sendgrid": "^5.2.3",
-    "sqlite": "^5.1.1",
     "stripe": "^17.7.0",
     "twilio": "^5.4.2"
   },
   "devDependencies": {
-    "@types/better-sqlite3": "^7.6.13",
     "@types/node": "^22.13.4",
     "@types/react": "^18.3.18",
     "@types/react-dom": "^18.3.5",

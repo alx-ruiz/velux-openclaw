@@ -1,26 +1,19 @@
-import { db, ensureSchema } from '@/lib/db';
+import { supabase } from '@/lib/supabase';
 
-export default function CommunicationsPage() {
-  ensureSchema();
-  const messages = db.prepare(`
-    SELECT m.*, c.first_name, c.last_name
-    FROM communications m
-    JOIN customers c ON c.id = m.customer_id
-    ORDER BY m.id DESC
-    LIMIT 100
-  `).all() as any[];
+export default async function CommunicationsPage() {
+  const { data: messages } = await supabase.from('sms_log').select('*').order('id', { ascending: false }).limit(100);
 
   return (
     <div className="space-y-4">
       <h1 className="text-2xl font-semibold">Communications</h1>
       <div className="card space-y-3">
-        {messages.map(m => (
+        {(messages ?? []).map((m: any) => (
           <div key={m.id} className="border-b pb-2 last:border-0 text-sm">
-            <p className="font-medium">{m.first_name} {m.last_name} • {m.channel.toUpperCase()} • {m.direction}</p>
-            <p>{m.body}</p>
+            <p className="font-medium">{m.customer_phone} • SMS • {m.direction || 'outbound'}</p>
+            <p>{m.body || m.message_body}</p>
           </div>
         ))}
-        {messages.length === 0 && <p className="text-sm">No messages logged yet.</p>}
+        {(messages ?? []).length === 0 && <p className="text-sm">No messages logged yet.</p>}
       </div>
     </div>
   );
