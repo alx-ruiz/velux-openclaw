@@ -1,0 +1,5 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="220" height="48" viewBox="0 0 220 48" fill="none">
+  <rect width="48" height="48" rx="8" fill="#0B1F3A"/>
+  <path d="M12 12L24 36L36 12" stroke="#F59E0B" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/>
+  <text x="58" y="31" font-family="Arial, sans-serif" font-size="24" fill="#0B1F3A">Velux CRM</text>
+</svg>
