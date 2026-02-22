@@ -1,24 +1,42 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { supabase } from '@/lib/supabase';
+import { supabaseAdmin } from '@/lib/supabase';
 import { stripe } from '@/lib/stripe';
 
 export async function POST(req: NextRequest) {
   const body = await req.json();
-  const { data: booking, error: bookingError } = await supabase
+  const { data: booking, error: bookingError } = await supabaseAdmin
     .from('bookings')
     .select('*')
     .eq('id', body.job_id)
     .single();
 
-  if (bookingError || !booking) return NextResponse.json({ error: 'Job not found' }, { status: 404 });
+  if (bookingError || !booking) {
+    return NextResponse.json({ error: 'Job not found' }, { status: 404 });
+  }
 
-  const amount = body.payment_type === 'deposit' ? booking.deposit_amount_cents : booking.balance_amount_cents;
+  const amount =
+    body.payment_type === 'deposit'
+      ? booking.deposit_amount_cents
+      : booking.balance_amount_cents;
 
-  const pi = stripe
-    ? await stripe.paymentIntents.create({ amount, currency: 'usd', metadata: { job_id: String(booking.id), payment_type: body.payment_type } })
-    : { id: `mock_${Date.now()}`, client_secret: 'mock_secret' };
+  if (!amount || amount <= 0) {
+    return NextResponse.json({ error: 'Invalid amount' }, { status: 400 });
+  }
 
-  await supabase.from('invoices').insert({
+  let pi: { id: string; client_secret?: string | null };
+
+  if (stripe) {
+    pi = await stripe.paymentIntents.create({
+      amount,
+      currency: 'usd',
+      metadata: { job_id: String(booking.id), payment_type: body.payment_type },
+    });
+  } else {
+    // Dev mode without Stripe key
+    pi = { id: `mock_${Date.now()}`, client_secret: 'mock_secret' };
+  }
+
+  await supabaseAdmin.from('invoices').insert({
     booking_id: booking.id,
     payment_type: body.payment_type,
     amount_cents: amount,
@@ -26,5 +44,9 @@ export async function POST(req: NextRequest) {
     stripe_payment_intent_id: pi.id,
   });
 
-  return NextResponse.json({ clientSecret: (pi as any).client_secret, paymentIntentId: pi.id, amount_cents: amount });
+  return NextResponse.json({
+    clientSecret: pi.client_secret,
+    paymentIntentId: pi.id,
+    amount_cents: amount,
+  });
 }

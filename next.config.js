@@ -1,10 +1,9 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   experimental: {
-    serverActions: {
-      bodySizeLimit: '2mb'
-    }
-  }
+    // googleapis has large proto files - exclude from edge bundling
+    serverComponentsExternalPackages: ['googleapis'],
+  },
 };
 
 module.exports = nextConfig;

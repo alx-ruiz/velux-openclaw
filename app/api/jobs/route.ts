@@ -1,10 +1,16 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { supabase } from '@/lib/supabase';
+import { supabaseAdmin } from '@/lib/supabase';
 import { splitPayment } from '@/lib/stripe';
 import { createCalendarEvent } from '@/lib/google-calendar';
 
 export async function GET() {
-  const { data, error } = await supabase.from('bookings').select('*').order('id', { ascending: false });
+  const { data, error } = await supabaseAdmin
+    .from('bookings')
+    .select(`
+      *,
+      customers (first_name, last_name, phone, email)
+    `)
+    .order('created_at', { ascending: false });
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
   return NextResponse.json(data ?? []);
 }
@@ -14,7 +20,7 @@ export async function POST(req: NextRequest) {
   const quote = Number(body.quoted_amount_cents || 0);
   const { deposit, balance } = splitPayment(quote);
 
-  const { data, error } = await supabase
+  const { data, error } = await supabaseAdmin
     .from('bookings')
     .insert({
       customer_id: body.customer_id,
@@ -33,8 +39,16 @@ export async function POST(req: NextRequest) {
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
 
   if (body.scheduled_start && body.scheduled_end) {
-    await createCalendarEvent(`Velux: ${body.service_type}`, body.scheduled_start, body.scheduled_end, body.notes);
+    await createCalendarEvent(
+      `Velux: ${body.service_type}`,
+      body.scheduled_start,
+      body.scheduled_end,
+      body.notes
+    ).catch(() => null); // non-fatal if calendar fails
   }
 
-  return NextResponse.json({ id: data?.id, deposit_amount_cents: deposit, balance_amount_cents: balance }, { status: 201 });
+  return NextResponse.json(
+    { id: data?.id, deposit_amount_cents: deposit, balance_amount_cents: balance },
+    { status: 201 }
+  );
 }
